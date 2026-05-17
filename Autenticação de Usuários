@@ -1,0 +1,48 @@
+    .section .text
+    .global auth_check_token
+    .align 2
+# int auth_check_token(uint32_t *token_ptr, uint32_t *expected_ptr)
+# a0 = token_ptr (aponta para 4 words), a1 = expected_ptr
+# retorna 1 se igual, 0 caso contrário
+auth_check_token:
+    # prólogo
+    addi sp, sp, -16
+    sw   ra, 12(sp)
+    sw   s0, 8(sp)
+
+    mv   s0, a0             # s0 = ponteiro para token recebido
+    mv   t0, a1             # t0 = ponteiro para token esperado
+
+    # comparar 4 palavras (offsets 0,4,8,12)
+    lw   t1, 0(s0)          # ler palavra 0 do token recebido
+    lw   t2, 0(t0)          # ler palavra 0 do token esperado
+    xor  t3, t1, t2         # xor = 0 se iguais
+    bnez t3, auth_fail      # se diferente, falha imediata
+
+    lw   t1, 4(s0)          # palavra 1
+    lw   t2, 4(t0)
+    xor  t3, t1, t2
+    bnez t3, auth_fail
+
+    lw   t1, 8(s0)          # palavra 2
+    lw   t2, 8(t0)
+    xor  t3, t1, t2
+    bnez t3, auth_fail
+
+    lw   t1, 12(s0)         # palavra 3
+    lw   t2, 12(t0)
+    xor  t3, t1, t2
+    bnez t3, auth_fail
+
+    li   a0, 1              # todos iguais -> sucesso
+    j    auth_done
+
+auth_fail:
+    li   a0, 0              # diferença encontrada -> falha
+
+auth_done:
+    # epílogo
+    lw   ra, 12(sp)
+    lw   s0, 8(sp)
+    addi sp, sp, 16
+    ret
