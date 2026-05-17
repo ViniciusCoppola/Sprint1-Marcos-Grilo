@@ -1,0 +1,39 @@
+    .section .text
+    .global set_charge_duty
+    .align 2
+# void set_charge_duty(uint32_t *pwm_ctrl_addr, uint8_t duty)
+# a0 = pwm_ctrl_addr, a1 = duty (0-100)
+set_charge_duty:
+    # prólogo
+    addi sp, sp, -16
+    sw   ra, 12(sp)
+    sw   s0, 8(sp)
+
+    mv   s0, a0             # s0 = endereço do registrador PWM
+    andi t0, a1, 0xff       # t0 = duty (garantir 8 bits)
+
+    # escalar duty 0-100 para 0-255: scaled = (duty * 255 + 50) / 100
+    li   t1, 255
+    mul  t2, t0, t1         # t2 = duty * 255  (usa M se disponível)
+    addi t2, t2, 50         # ajuste para arredondamento
+    li   t3, 100
+    div  t2, t2, t3         # t2 = valor escalado 0-255
+
+    # ler registrador atual e atualizar apenas o campo duty (ex.: bits [15:8])
+    lw   t4, 0(s0)          # ler valor atual do registrador de controle
+    li   t5, 0x0000FF00     # máscara para o campo duty
+    not  t5, t5             # inverter máscara para limpar o campo duty
+    and  t4, t4, t5         # limpar bits do campo duty
+    slli t2, t2, 8          # posicionar duty no campo [15:8]
+    or   t4, t4, t2         # inserir novo duty
+    sw   t4, 0(s0)          # escrever de volta (uma única escrita)
+
+    # opcional: acionar bit de atualização em registrador adjacente
+    li   t6, 0x1
+    sw   t6, 4(s0)          # escrever trigger de atualização
+
+    # epílogo
+    lw   ra, 12(sp)
+    lw   s0, 8(sp)
+    addi sp, sp, 16
+    ret
